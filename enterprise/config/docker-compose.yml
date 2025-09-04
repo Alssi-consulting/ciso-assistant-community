@@ -1,4 +1,4 @@
-name: CISO-Assistant-entrep-std
+name: CA-ent-std-sqllite-8445
 services:
   backend-ent-std:
     container_name: backend-ent-std
