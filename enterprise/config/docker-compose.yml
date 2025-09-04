@@ -1,3 +1,4 @@
+name: CISO-Assistant-entrep-std
 services:
   backend-ent-std:
     container_name: backend-ent-std
