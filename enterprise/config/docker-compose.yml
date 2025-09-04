@@ -5,7 +5,7 @@ services:
     pull_policy: always
     restart: always
     environment:
-      - ALLOWED_HOSTS=backend,backend-ent-std,localhost
+      - ALLOWED_HOSTS=backend-ent-std,localhost
       - CISO_ASSISTANT_URL=https://localhost:8445
       - DJANGO_DEBUG=True
       - AUTH_TOKEN_TTL=7200
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
     restart: always
     environment:
-      - ALLOWED_HOSTS=backend,backend-ent-std,localhost
+      - ALLOWED_HOSTS=backend-ent-std,localhost
       - CISO_ASSISTANT_URL=https://localhost:8445
       - DJANGO_DEBUG=False
       - AUTH_TOKEN_TTL=7200
