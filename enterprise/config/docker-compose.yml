@@ -1,0 +1,85 @@
+services:
+  backend-ent-std:
+    container_name: backend-ent-std
+    image: ghcr.io/intuitem/ciso-assistant-enterprise-backend:latest
+    pull_policy: always
+    restart: always
+    networks:
+      default:
+        aliases:
+          - backend
+    environment:
+      - ALLOWED_HOSTS=backend,backend-ent-std,localhost
+      - CISO_ASSISTANT_URL=https://localhost:8445
+      - DJANGO_DEBUG=True
+      - AUTH_TOKEN_TTL=7200
+      - LICENSE_SEATS=5
+      - LICENSE_EXPIRATION=2025-12-21
+      
+    volumes:
+      - ./db:/code/db
+    healthcheck:
+      test: ["CMD-SHELL", "curl -H 'Host: localhost' -f http://backend:8000/api/build || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  huey-ent-std:
+    container_name: huey-ent-std
+    image: ghcr.io/intuitem/ciso-assistant-enterprise-backend:latest
+    pull_policy: always
+    depends_on:
+      backend-ent-std:
+        condition: service_healthy
+    restart: always
+    environment:
+      - ALLOWED_HOSTS=backend,backend-ent-std,localhost
+      - CISO_ASSISTANT_URL=https://localhost:8445
+      - DJANGO_DEBUG=False
+      - AUTH_TOKEN_TTL=7200
+      - LICENSE_SEATS=5
+      - LICENSE_EXPIRATION=2025-12-21
+      
+    volumes:
+      - ./db:/code/db
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        poetry run python manage.py run_huey -w 2 --scheduler-interval 60
+
+  frontend-ent-std:
+    container_name: frontend-ent-std
+    environment:
+      - PUBLIC_BACKEND_API_URL=http://backend:8000/api
+      - PUBLIC_BACKEND_API_EXPOSED_URL=https://localhost:8445/api
+      - PROTOCOL_HEADER=x-forwarded-proto
+      - HOST_HEADER=x-forwarded-host
+    image: ghcr.io/intuitem/ciso-assistant-enterprise-frontend:latest
+    pull_policy: always
+    depends_on:
+      backend-ent-std:
+        condition: service_healthy
+
+  caddy-ent-std:
+    container_name: caddy-ent-std
+    image: caddy:2.10.0
+    environment:
+      - CISO_ASSISTANT_URL=https://localhost:8445
+    depends_on:
+      backend-ent-std:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - 8445:8445
+    volumes:
+      - ./caddy_data:/data
+    command: |
+      sh -c 'echo $$CISO_ASSISTANT_URL "{
+      reverse_proxy /api/* backend:8000 {
+      header_up Host localhost
+      }
+      reverse_proxy /* frontend-ent-std:3000
+      tls internal
+      }" > Caddyfile && caddy run'
