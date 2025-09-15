@@ -959,6 +959,240 @@ class LoadedLibrary(LibraryMixin):
         )
 
 
+class Terminology(NameDescriptionMixin, FolderMixin, PublishInRootFolderMixin):
+    """
+    Model to store custom terminology for the application
+    """
+
+    class FieldPath(models.TextChoices):
+        ROTO_RISK_ORIGIN = "ro_to.risk_origin", "ro_to/risk_origin"
+        QUALIFICATIONS = "qualifications", "qualifications"
+
+    DEFAULT_ROTO_RISK_ORIGINS = [
+        {
+            "name": "state",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "organized_crime",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "terrorist",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "activist",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "competitor",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "amateur",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "avenger",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "pathological",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        {
+            "name": "other",
+            "builtin": True,
+            "field_path": FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+    ]
+
+    DEFAULT_QUALIFICATIONS = [
+        {
+            "name": "confidentiality",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "integrity",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "availability",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "proof",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "authenticity",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "privacy",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "safety",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "reputation",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "operational",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "legal",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "financial",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "governance",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "missions_and_organizational_services",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "human",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "material",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "environmental",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "image",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        {
+            "name": "trust",
+            "builtin": True,
+            "field_path": FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+    ]
+
+    field_path = models.CharField(
+        max_length=100,
+        verbose_name=_("Field path"),
+        choices=FieldPath.choices,
+    )
+    builtin = models.BooleanField(
+        default=False,
+        verbose_name=_("Built-in"),
+        help_text=_("Indicates if the terminology is built-in and cannot be modified"),
+    )
+    is_visible = models.BooleanField(
+        default=True,
+        verbose_name=_("Is Visible"),
+        help_text=_("Indicates if the terminology is visible in the UI"),
+    )
+    translations = models.JSONField(
+        default=dict,
+        blank=True,
+        null=True,
+        verbose_name=_("Translations"),
+        help_text=_("JSON field to store translations for different languages"),
+    )
+
+    fields_to_check = ["name", "field_path"]
+
+    @classmethod
+    def create_default_roto_risk_origins(cls):
+        for risk_origin in cls.DEFAULT_ROTO_RISK_ORIGINS:
+            Terminology.objects.update_or_create(
+                name=risk_origin["name"],
+                field_path=risk_origin["field_path"],
+                defaults=risk_origin,
+            )
+
+    @classmethod
+    def create_default_qualifications(cls):
+        for qualification in cls.DEFAULT_QUALIFICATIONS:
+            Terminology.objects.update_or_create(
+                name=qualification["name"],
+                field_path=qualification["field_path"],
+                defaults=qualification,
+            )
+
+    @property
+    def get_name_translated(self) -> str:
+        translations = self.translations if self.translations else {}
+        locale_translation = translations.get(get_language(), "")
+        return locale_translation.capitalize() or self.name.capitalize()
+
+    def __str__(self) -> str:
+        return (
+            self.get_name_translated.capitalize()
+            if self.get_name_translated
+            else self.name.capitalize()
+        )
+
+
 class Threat(
     ReferentialObjectMixin,
     I18nObjectMixin,
@@ -1414,150 +1648,6 @@ class RequirementMapping(models.Model):
         if self.relationship in self.FULL_COVERAGE_RELATIONSHIPS:
             return RequirementMapping.Coverage.FULL
         return RequirementMapping.Coverage.PARTIAL
-
-
-class Qualification(ReferentialObjectMixin, I18nObjectMixin, PublishInRootFolderMixin):
-    DEFAULT_QUALIFICATIONS = [
-        {
-            "abbreviation": "C",
-            "qualification_ordering": 1,
-            "security_objective_ordering": 1,
-            "name": "Confidentiality",
-            "urn": "urn:intuitem:risk:qualification:confidentiality",
-        },
-        {
-            "abbreviation": "I",
-            "qualification_ordering": 2,
-            "security_objective_ordering": 2,
-            "name": "Integrity",
-            "urn": "urn:intuitem:risk:qualification:integrity",
-        },
-        {
-            "abbreviation": "A",
-            "qualification_ordering": 3,
-            "security_objective_ordering": 3,
-            "name": "Availability",
-            "urn": "urn:intuitem:risk:qualification:availability",
-        },
-        {
-            "abbreviation": "P",
-            "qualification_ordering": 4,
-            "security_objective_ordering": 4,
-            "name": "Proof",
-            "urn": "urn:intuitem:risk:qualification:proof",
-        },
-        {
-            "abbreviation": "Aut",
-            "qualification_ordering": 5,
-            "security_objective_ordering": 5,
-            "name": "Authenticity",
-            "urn": "urn:intuitem:risk:qualification:authenticity",
-        },
-        {
-            "abbreviation": "Priv",
-            "qualification_ordering": 6,
-            "security_objective_ordering": 6,
-            "name": "Privacy",
-            "urn": "urn:intuitem:risk:qualification:privacy",
-        },
-        {
-            "abbreviation": "Safe",
-            "qualification_ordering": 7,
-            "security_objective_ordering": 7,
-            "name": "Safety",
-            "urn": "urn:intuitem:risk:qualification:safety",
-        },
-        {
-            "abbreviation": "Rep",
-            "qualification_ordering": 8,
-            "name": "Reputation",
-            "urn": "urn:intuitem:risk:qualification:reputation",
-        },
-        {
-            "abbreviation": "Ope",
-            "qualification_ordering": 9,
-            "name": "Operational",
-            "urn": "urn:intuitem:risk:qualification:operational",
-        },
-        {
-            "abbreviation": "Leg",
-            "qualification_ordering": 10,
-            "name": "Legal",
-            "urn": "urn:intuitem:risk:qualification:legal",
-        },
-        {
-            "abbreviation": "Fin",
-            "qualification_ordering": 11,
-            "name": "Financial",
-            "urn": "urn:intuitem:risk:qualification:financial",
-        },
-        {
-            "abbreviation": "Gov",
-            "qualification_ordering": 12,
-            "name": "Governance",
-            "urn": "urn:intuitem:risk:qualification:governance",
-        },
-        {
-            "abbreviation": "Mis",
-            "qualification_ordering": 13,
-            "name": "Missions and Organizational Services",
-            "urn": "urn:intuitem:risk:qualification:missions",
-        },
-        {
-            "abbreviation": "Hum",
-            "qualification_ordering": 14,
-            "name": "Human",
-            "urn": "urn:intuitem:risk:qualification:human",
-        },
-        {
-            "abbreviation": "Mat",
-            "qualification_ordering": 15,
-            "name": "Material",
-            "urn": "urn:intuitem:risk:qualification:material",
-        },
-        {
-            "abbreviation": "Env",
-            "qualification_ordering": 16,
-            "name": "Environmental",
-            "urn": "urn:intuitem:risk:qualification:environmental",
-        },
-        {
-            "abbreviation": "Img",
-            "qualification_ordering": 17,
-            "name": "Image",
-            "urn": "urn:intuitem:risk:qualification:image",
-        },
-        {
-            "abbreviation": "Tru",
-            "qualification_ordering": 18,
-            "name": "Trust",
-            "urn": "urn:intuitem:risk:qualification:trust",
-        },
-    ]
-
-    abbreviation = models.CharField(
-        max_length=20, null=True, blank=True, verbose_name=_("Abbreviation")
-    )
-    qualification_ordering = models.PositiveSmallIntegerField(
-        verbose_name=_("Ordering"), default=0
-    )
-    security_objective_ordering = models.PositiveSmallIntegerField(
-        verbose_name=_("Security objective ordering"), default=0
-    )
-
-    class Meta:
-        verbose_name = _("Qualification")
-        verbose_name_plural = _("Qualifications")
-        ordering = ["qualification_ordering"]
-
-    @classmethod
-    def create_default_qualifications(cls):
-        for qualification in cls.DEFAULT_QUALIFICATIONS:
-            Qualification.objects.update_or_create(
-                urn=qualification["urn"],
-                defaults=qualification,
-                create_defaults=qualification,
-            )
 
 
 ########################### Domain objects #########################
@@ -2676,9 +2766,13 @@ class Incident(NameDescriptionMixin, FolderMixin):
         blank=True,
     )
     qualifications = models.ManyToManyField(
-        Qualification,
-        related_name="incidents",
+        Terminology,
         verbose_name="Qualifications",
+        related_name="incidents_qualifications",
+        limit_choices_to={
+            "field_path": Terminology.FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
         blank=True,
     )
 
@@ -2769,6 +2863,15 @@ class TimelineEntry(AbstractBaseModel, FolderMixin):
             raise ValidationError("Timestamp cannot be in the future.")
         self.folder = self.incident.folder
         super().save(*args, **kwargs)
+
+
+def _get_default_applied_control_cost():
+    return {
+        "currency": "€",
+        "amortization_period": 1,
+        "build": {"fixed_cost": 0, "people_days": 0},
+        "run": {"fixed_cost": 0, "people_days": 0},
+    }
 
 
 class AppliedControl(
@@ -2899,10 +3002,45 @@ class AppliedControl(
         verbose_name="Impact", choices=IMPACT, null=True, blank=True
     )
 
-    cost = models.FloatField(
+    cost = models.JSONField(
         null=True,
-        help_text=_("Cost of the measure (using globally-chosen currency)"),
+        blank=True,
+        default=_get_default_applied_control_cost,
+        help_text=_("Detailed cost structure including build and run costs"),
         verbose_name=_("Cost"),
+        validators=[
+            JSONSchemaInstanceValidator(
+                {
+                    "type": "object",
+                    "properties": {
+                        "currency": {"type": "string"},
+                        "amortization_period": {
+                            "type": "number",
+                            "minimum": 1,
+                            "maximum": 50,
+                            "default": 1,
+                        },
+                        "build": {
+                            "type": "object",
+                            "properties": {
+                                "fixed_cost": {"type": "number", "minimum": 0},
+                                "people_days": {"type": "number", "minimum": 0},
+                            },
+                            "additionalProperties": False,
+                        },
+                        "run": {
+                            "type": "object",
+                            "properties": {
+                                "fixed_cost": {"type": "number", "minimum": 0},
+                                "people_days": {"type": "number", "minimum": 0},
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                    "additionalProperties": False,
+                }
+            )
+        ],
     )
     progress_field = models.IntegerField(
         default=0,
@@ -2969,6 +3107,79 @@ class AppliedControl(
     @property
     def csv_value(self):
         return f"[{self.status}] {self.name}" if self.status else self.name
+
+    @property
+    def annual_cost(self):
+        """Returns the annualized cost as a numeric value"""
+        if not self.cost:
+            return 0
+
+        build_cost = self.cost.get("build", {})
+        run_cost = self.cost.get("run", {})
+        amortization_period = self.cost.get("amortization_period", 1)
+
+        # Get daily rate from global settings
+        general_settings = GlobalSettings.objects.filter(name="general").first()
+        daily_rate = (
+            general_settings.value.get("daily_rate", 500) if general_settings else 500
+        )
+
+        # Calculate annual cost
+        annual_cost = 0
+
+        # Amortized build costs
+        build_fixed = build_cost.get("fixed_cost", 0)
+        build_people = build_cost.get("people_days", 0)
+        if build_fixed > 0:
+            annual_cost += build_fixed / amortization_period
+        if build_people > 0:
+            annual_cost += (build_people * daily_rate) / amortization_period
+
+        # Annual run costs
+        run_fixed = run_cost.get("fixed_cost", 0)
+        run_people = run_cost.get("people_days", 0)
+        if run_fixed > 0:
+            annual_cost += run_fixed
+        if run_people > 0:
+            annual_cost += run_people * daily_rate
+
+        return annual_cost
+
+    @property
+    def display_cost(self):
+        """Returns a human-readable cost display string"""
+        if not self.cost:
+            return ""
+
+        currency = self.cost.get("currency", "")
+        parts = []
+
+        build_cost = self.cost.get("build", {})
+        run_cost = self.cost.get("run", {})
+
+        if build_cost:
+            build_fixed = build_cost.get("fixed_cost", 0)
+            build_people = build_cost.get("people_days", 0)
+            if build_fixed > 0 or build_people > 0:
+                build_parts = []
+                if build_fixed > 0:
+                    build_parts.append(f"{build_fixed}{currency}")
+                if build_people > 0:
+                    build_parts.append(f"{build_people} people days")
+                parts.append(f"Build: {', '.join(build_parts)}")
+
+        if run_cost:
+            run_fixed = run_cost.get("fixed_cost", 0)
+            run_people = run_cost.get("people_days", 0)
+            if run_fixed > 0 or run_people > 0:
+                run_parts = []
+                if run_fixed > 0:
+                    run_parts.append(f"{run_fixed}{currency}")
+                if run_people > 0:
+                    run_parts.append(f"{run_people} people days")
+                parts.append(f"Run: {', '.join(run_parts)}")
+
+        return " | ".join(parts) if parts else ""
 
     def get_ranking_score(self):
         value = 0
@@ -3382,6 +3593,13 @@ class RiskAssessment(Assessment):
         scenario_count = count
         return scenario_count
 
+    @classmethod
+    def get_status_choices(cls) -> list[tuple[str, str]]:
+        """Returns the status choices with an additional empty choice at the end for null status"""
+        choices = list(RiskAssessment.Status.choices)
+        choices.append(("--", "--"))
+        return choices
+
     def quality_check(self) -> dict:
         errors_lst = list()
         warnings_lst = list()
@@ -3666,20 +3884,6 @@ class RiskScenario(NameDescriptionMixin):
         ("transfer", _("Transfer")),
     ]
 
-    QUALIFICATIONS = [
-        ("Confidentiality", _("Confidentiality")),
-        ("Integrity", _("Integrity")),
-        ("Availability", _("Availability")),
-        ("Proof", _("Proof")),
-        ("Authenticity", _("Authenticity")),
-        ("Privacy", _("Privacy")),
-        ("Safety", _("Safety")),
-        ("Reputation", _("Reputation")),
-        ("Operational", _("Operational")),
-        ("Legal", _("Legal")),
-        ("Financial", _("Financial")),
-    ]
-
     DEFAULT_SOK_OPTIONS = {
         -1: {
             "name": _("--"),
@@ -3819,7 +4023,16 @@ class RiskScenario(NameDescriptionMixin):
         max_length=100, blank=True, verbose_name=_("Reference ID")
     )
 
-    qualifications = models.JSONField(default=list, verbose_name=_("Qualifications"))
+    qualifications = models.ManyToManyField(
+        Terminology,
+        verbose_name="Qualifications",
+        related_name="risk_scenarios_qualifications",
+        limit_choices_to={
+            "field_path": Terminology.FieldPath.QUALIFICATIONS,
+            "is_visible": True,
+        },
+        blank=True,
+    )
 
     strength_of_knowledge = models.IntegerField(
         default=-1,
@@ -3845,6 +4058,9 @@ class RiskScenario(NameDescriptionMixin):
     # def get_rating_options(self, field: str) -> list[tuple]:
     #     risk_matrix = self.risk_assessment.risk_matrix.parse_json()
     #     return [(k, v) for k, v in risk_matrix.fields[field].items()]
+
+    def get_folder_full_path(self, include_root: bool = False) -> list[Folder]:
+        return self.risk_assessment.get_folder_full_path(include_root=include_root)
 
     @property
     def is_locked(self) -> bool:
@@ -5614,110 +5830,3 @@ auditlog.register(
     exclude_fields=common_exclude,
 )
 # actions - 0: create, 1: update, 2: delete
-
-
-class Terminology(NameDescriptionMixin, FolderMixin, PublishInRootFolderMixin):
-    """
-    Model to store custom terminology for the application
-    """
-
-    class FieldPath(models.TextChoices):
-        ROTO_RISK_ORIGIN = "ro_to.risk_origin", "ro_to/risk_origin"
-
-    DEFAULT_ROTO_RISK_ORIGINS = [
-        {
-            "name": "state",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "organized_crime",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "terrorist",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "activist",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "competitor",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "amateur",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "avenger",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "pathological",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-        {
-            "name": "other",
-            "builtin": True,
-            "field_path": FieldPath.ROTO_RISK_ORIGIN,
-            "is_visible": True,
-        },
-    ]
-
-    field_path = models.CharField(
-        max_length=100,
-        verbose_name=_("Field path"),
-        choices=FieldPath.choices,
-    )
-    builtin = models.BooleanField(
-        default=False,
-        verbose_name=_("Built-in"),
-        help_text=_("Indicates if the terminology is built-in and cannot be modified"),
-    )
-    is_visible = models.BooleanField(
-        default=True,
-        verbose_name=_("Is Visible"),
-        help_text=_("Indicates if the terminology is visible in the UI"),
-    )
-    translations = models.JSONField(
-        default=dict,
-        blank=True,
-        null=True,
-        verbose_name=_("Translations"),
-        help_text=_("JSON field to store translations for different languages"),
-    )
-
-    @classmethod
-    def create_default_roto_risk_origins(cls):
-        for risk_origin in cls.DEFAULT_ROTO_RISK_ORIGINS:
-            Terminology.objects.update_or_create(
-                name=risk_origin["name"],
-                field_path=risk_origin["field_path"],
-                defaults=risk_origin,
-            )
-
-    @property
-    def get_name_translated(self) -> str:
-        translations = self.translations if self.translations else {}
-        locale_translations = translations.get(get_language(), {})
-        return locale_translations or self.name
-
-    def __str__(self) -> str:
-        return self.get_name_translated or self.name

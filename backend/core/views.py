@@ -423,6 +423,23 @@ class BaseModelViewSet(viewsets.ModelViewSet):
         return Response(serializer_class(super().get_object()).data)
 
 
+# Content types
+
+
+class ContentTypeListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @method_decorator(cache_page(60 * MED_CACHE_TTL))
+    def get(self, request, format=None):
+        content_types = []
+        for model in apps.get_models():
+            content_types.append(
+                {"label": model.__name__, "value": model._meta.model_name}
+            )
+        content_types.sort(key=lambda x: x["label"].lower())
+        return Response(content_types)
+
+
 # Risk Assessment
 
 
@@ -1133,22 +1150,37 @@ class FilteringLabelViewSet(BaseModelViewSet):
     ordering = ["label"]
 
 
+class RiskAssessmentFilterSet(GenericFilterSet):
+    status = df.MultipleChoiceFilter(
+        choices=RiskAssessment.get_status_choices(), method="filter_status"
+    )
+
+    class Meta:
+        model = RiskAssessment
+        fields = {
+            "perimeter": ["exact"],
+            "folder": ["exact"],
+            "authors": ["exact"],
+            "risk_matrix": ["exact"],
+            "status": ["exact"],
+            "ebios_rm_study": ["exact"],
+            "reviewers": ["exact"],
+        }
+
+    def filter_status(self, queryset, name, value):
+        ra_undefined_status = queryset.filter(status__isnull=True)
+        if "--" in value:
+            return queryset.filter(status__in=value) | ra_undefined_status
+        return queryset.filter(status__in=value)
+
+
 class RiskAssessmentViewSet(BaseModelViewSet):
     """
     API endpoint that allows risk assessments to be viewed or edited.
     """
 
     model = RiskAssessment
-    filterset_fields = [
-        "perimeter",
-        "folder",
-        "authors",
-        "risk_matrix",
-        "status",
-        "ebios_rm_study",
-        "authors",
-        "reviewers",
-    ]
+    filterset_class = RiskAssessmentFilterSet
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1305,7 +1337,7 @@ class RiskAssessmentViewSet(BaseModelViewSet):
                 item.get("expiry_date"),
                 item.get("effort"),
                 item.get("impact"),
-                item.get("cost"),
+                item.get("annual_cost"),
                 "\n".join([ra.get("str") for ra in item.get("owner")]),
                 "\n".join([ra.get("str") for ra in item.get("risk_scenarios")]),
             ]
@@ -1555,7 +1587,6 @@ class RiskAssessmentViewSet(BaseModelViewSet):
                     description=scenario.description,
                     existing_controls=scenario.existing_controls,
                     treatment=scenario.treatment,
-                    qualifications=scenario.qualifications,
                     current_proba=scenario.current_proba,
                     current_impact=scenario.current_impact,
                     residual_proba=scenario.residual_proba,
@@ -1564,6 +1595,8 @@ class RiskAssessmentViewSet(BaseModelViewSet):
                     justification=scenario.justification,
                     ref_id=scenario.ref_id,
                 )
+
+                duplicate_scenario.qualifications.set(scenario.qualifications.all())
 
                 for field in [
                     "applied_controls",
@@ -1721,7 +1754,6 @@ class AppliedControlFilterSet(GenericFilterSet):
             "reference_control": ["exact", "isnull"],
             "effort": ["exact"],
             "control_impact": ["exact"],
-            "cost": ["exact"],
             "filtering_labels": ["exact"],
             "risk_scenarios": ["exact"],
             "risk_scenarios_e": ["exact"],
@@ -2355,7 +2387,6 @@ class ActionPlanList(generics.ListAPIView):
         "reference_control": ["exact"],
         "effort": ["exact"],
         "control_impact": ["exact"],
-        "cost": ["exact"],
         "filtering_labels": ["exact"],
         "risk_scenarios": ["exact"],
         "risk_scenarios_e": ["exact"],
@@ -2527,11 +2558,6 @@ class RiskScenarioViewSet(BaseModelViewSet):
     @action(detail=False, name="Get treatment choices")
     def treatment(self, request):
         return Response(dict(RiskScenario.TREATMENT_OPTIONS))
-
-    @method_decorator(cache_page(60 * LONG_CACHE_TTL))
-    @action(detail=False, name="Get qualification choices")
-    def qualifications(self, request):
-        return Response(dict(RiskScenario.QUALIFICATIONS))
 
     @action(detail=False, name="Get qualifications count")
     def qualifications_count(self, request):
@@ -3712,6 +3738,9 @@ class FolderViewSet(BaseModelViewSet):
                 many_to_many_map_ids["evidence_ids"] = get_mapped_ids(
                     _fields.pop("evidences", []), link_dump_database_ids
                 )
+                many_to_many_map_ids["objective_ids"] = get_mapped_ids(
+                    _fields.pop("objectives", []), link_dump_database_ids
+                )
                 ref_control_id = link_dump_database_ids.get(
                     _fields["reference_control"]
                 )
@@ -3758,6 +3787,7 @@ class FolderViewSet(BaseModelViewSet):
                     "assets",
                     "applied_controls",
                     "existing_applied_controls",
+                    "qualifications",
                 ]
                 for field in related__fields:
                     map_key = (
@@ -3765,9 +3795,12 @@ class FolderViewSet(BaseModelViewSet):
                         if not field.endswith("controls")
                         else f"{field}_ids"
                     )
-                    many_to_many_map_ids[map_key] = get_mapped_ids(
-                        _fields.pop(field, []), link_dump_database_ids
-                    )
+                    if field == "qualifications":
+                        many_to_many_map_ids[map_key] = _fields.pop(field, [])
+                    else:
+                        many_to_many_map_ids[map_key] = get_mapped_ids(
+                            _fields.pop(field, []), link_dump_database_ids
+                        )
 
             case "entity":
                 _fields.pop("owned_folders", None)
@@ -3801,9 +3834,7 @@ class FolderViewSet(BaseModelViewSet):
                 )
                 many_to_many_map_ids.update(
                     {
-                        "qualifications_urn": get_mapped_ids(
-                            _fields.pop("qualifications", []), link_dump_database_ids
-                        ),
+                        "qualification_ids": _fields.pop("qualifications", []),
                         "asset_ids": get_mapped_ids(
                             _fields.pop("assets", []), link_dump_database_ids
                         ),
@@ -3816,6 +3847,11 @@ class FolderViewSet(BaseModelViewSet):
                 )
                 many_to_many_map_ids["feared_event_ids"] = get_mapped_ids(
                     _fields.pop("feared_events", []), link_dump_database_ids
+                )
+                _fields["risk_origin"], _ = Terminology.objects.get_or_create(
+                    name=_fields["risk_origin"],
+                    is_visible=True,
+                    field_path=Terminology.FieldPath.ROTO_RISK_ORIGIN,
                 )
 
             case "stakeholder":
@@ -3893,6 +3929,11 @@ class FolderViewSet(BaseModelViewSet):
                 if evidence_ids := many_to_many_map_ids.get("evidence_ids"):
                     obj.evidences.set(Evidence.objects.filter(id__in=evidence_ids))
 
+                if objectives_ids := many_to_many_map_ids.get("objective_ids"):
+                    obj.objectives.set(
+                        OrganisationObjective.objects.filter(id__in=objectives_ids)
+                    )
+
             case "requirementassessment":
                 if applied_control_ids := many_to_many_map_ids.get("applied_controls"):
                     obj.applied_controls.set(
@@ -3912,6 +3953,37 @@ class FolderViewSet(BaseModelViewSet):
                     uuids, urns = self._split_uuids_urns(threat_ids)
                     obj.threats.set(
                         Threat.objects.filter(Q(id__in=uuids) | Q(urn__in=urns))
+                    )
+
+                if qualification_ids := many_to_many_map_ids.get("qualification_ids"):
+                    # Get existing qualifications
+                    existing_qualifications = Terminology.objects.filter(
+                        name__in=qualification_ids
+                    )
+                    existing_names = set(
+                        existing_qualifications.values_list("name", flat=True)
+                    )
+
+                    # Find missing names
+                    missing_names = set(qualification_ids) - existing_names
+
+                    # Create missing qualifications
+                    if missing_names:
+                        Terminology.objects.bulk_create(
+                            [
+                                Terminology(
+                                    name=name,
+                                    is_visible=True,
+                                    field_path=Terminology.FieldPath.QUALIFICATIONS,
+                                )
+                                for name in missing_names
+                            ],
+                            ignore_conflicts=True,
+                        )
+
+                    # Now set all qualifications
+                    obj.qualifications.set(
+                        Terminology.objects.filter(name__in=qualification_ids)
                     )
 
                 for field, model_class in {
@@ -3941,9 +4013,35 @@ class FolderViewSet(BaseModelViewSet):
                     )
 
             case "fearedevent":
-                if qualifications_urn := many_to_many_map_ids.get("qualifications_urn"):
+                if qualification_ids := many_to_many_map_ids.get("qualification_ids"):
+                    # Get existing qualifications
+                    existing_qualifications = Terminology.objects.filter(
+                        name__in=qualification_ids
+                    )
+                    existing_names = set(
+                        existing_qualifications.values_list("name", flat=True)
+                    )
+
+                    # Find missing names
+                    missing_names = set(qualification_ids) - existing_names
+
+                    # Create missing qualifications
+                    if missing_names:
+                        Terminology.objects.bulk_create(
+                            [
+                                Terminology(
+                                    name=name,
+                                    is_visible=True,
+                                    field_path=Terminology.FieldPath.QUALIFICATIONS,
+                                )
+                                for name in missing_names
+                            ],
+                            ignore_conflicts=True,
+                        )
+
+                    # Now set all qualifications
                     obj.qualifications.set(
-                        Qualification.objects.filter(urn__in=qualifications_urn)
+                        Terminology.objects.filter(name__in=qualification_ids)
                     )
                 if asset_ids := many_to_many_map_ids.get("asset_ids"):
                     obj.assets.set(Asset.objects.filter(id__in=asset_ids))
@@ -4613,15 +4711,6 @@ class QuickStartView(APIView):
             return Response(objects, status=status.HTTP_201_CREATED)
 
 
-class QualificationViewSet(BaseModelViewSet):
-    """
-    API endpoint that allows qualifications to be viewed or edited.
-    """
-
-    model = Qualification
-    search_fields = ["name"]
-
-
 class OrganisationObjectiveViewSet(BaseModelViewSet):
     model = OrganisationObjective
 
@@ -5003,7 +5092,7 @@ class ComplianceAssessmentViewSet(BaseModelViewSet):
                     item.get("expiry_date"),
                     item.get("effort"),
                     item.get("impact"),
-                    item.get("cost"),
+                    item.get("annual_cost"),
                     "\n".join(
                         [ra.get("str") for ra in item.get("requirement_assessments")]
                     ),
@@ -5618,6 +5707,15 @@ class ComplianceAssessmentViewSet(BaseModelViewSet):
 
         return Response(threat_metrics, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["get"], name="Get compliance analytics")
+    def analytics(self, request):
+        """
+        Returns compliance analytics data grouped by framework and domain
+        """
+        folder_id = request.query_params.get("folder", None)
+        analytics_data = get_compliance_analytics(request.user, folder_id)
+        return Response(analytics_data, status=status.HTTP_200_OK)
+
 
 class RequirementAssessmentViewSet(BaseModelViewSet):
     """
@@ -6039,8 +6137,8 @@ def export_mp_csv(request):
         "eta",
         "priority",
         "effort",
-        "impact",
-        "cost",
+        "control_impact",
+        "annual_cost",
         "link",
         "status",
     ]
@@ -6063,8 +6161,8 @@ def export_mp_csv(request):
             mtg.reference_control,
             mtg.eta,
             mtg.effort,
-            mtg.impact,
-            mtg.cost,
+            mtg.control_impact,
+            mtg.annual_cost,
             mtg.link,
             mtg.status,
         ]

@@ -615,6 +615,7 @@ class RiskScenarioReadSerializer(RiskScenarioWriteSerializer):
     version = serializers.StringRelatedField(source="risk_assessment.version")
     threats = FieldsRelatedField(many=True)
     assets = FieldsRelatedField(many=True)
+    qualifications = FieldsRelatedField(many=True)
 
     treatment = serializers.CharField()
 
@@ -648,6 +649,9 @@ class RiskScenarioImportExportSerializer(BaseModelSerializer):
         slug_field="pk", read_only=True, many=True
     )
     applied_controls = HashSlugRelatedField(slug_field="pk", read_only=True, many=True)
+    qualifications = serializers.SlugRelatedField(
+        slug_field="name", read_only=True, many=True
+    )
 
     class Meta:
         model = RiskScenario
@@ -682,6 +686,7 @@ class AppliedControlWriteSerializer(BaseModelSerializer):
     stakeholders = serializers.PrimaryKeyRelatedField(
         many=True, required=False, queryset=Stakeholder.objects.all()
     )
+    cost = serializers.JSONField(required=False, allow_null=True)
 
     def create(self, validated_data: Any):
         owner_data = validated_data.get("owner", [])
@@ -758,7 +763,12 @@ class AppliedControlReadSerializer(AppliedControlWriteSerializer):
     objectives = FieldsRelatedField(many=True)
     effort = serializers.CharField(source="get_effort_display")
     control_impact = serializers.CharField(source="get_control_impact_display")
-    cost = serializers.FloatField()
+    cost = serializers.JSONField()
+    annual_cost = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    currency = serializers.SerializerMethodField()
+    annual_cost_display = serializers.SerializerMethodField()
     filtering_labels = FieldsRelatedField(["folder"], many=True)
     assets = FieldsRelatedField(many=True)
 
@@ -773,6 +783,18 @@ class AppliedControlReadSerializer(AppliedControlWriteSerializer):
         if not obj.eta:
             return None
         return time_state(obj.eta.isoformat())
+
+    def get_currency(self, obj):
+        if not obj.cost:
+            return "€"  # Default currency
+        return obj.cost.get("currency", "€")
+
+    def get_annual_cost_display(self, obj):
+        annual_cost = obj.annual_cost
+        if annual_cost == 0:
+            return ""
+        currency = self.get_currency(obj)
+        return f"{annual_cost:,.2f} {currency}"
 
 
 class ActionPlanSerializer(BaseModelSerializer):
@@ -789,7 +811,10 @@ class ActionPlanSerializer(BaseModelSerializer):
     effort = serializers.CharField(source="get_effort_display")
     control_impact = serializers.CharField(source="get_control_impact_display")
     status = serializers.CharField(source="get_status_display")
-    cost = serializers.FloatField()
+    cost = serializers.JSONField()
+    annual_cost = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
 
     ranking_score = serializers.IntegerField(source="get_ranking_score")
     owner = FieldsRelatedField(many=True)
@@ -1035,6 +1060,7 @@ class UserWriteSerializer(BaseModelSerializer):
 
 
 class UserGroupReadSerializer(BaseModelSerializer):
+    path = PathField(source="get_folder_full_path", read_only=True)
     name = serializers.CharField(source="__str__")
     localization_dict = serializers.JSONField(source="get_localization_dict")
     folder = FieldsRelatedField()
@@ -1623,16 +1649,6 @@ class FilteringLabelWriteSerializer(BaseModelSerializer):
         exclude = ["folder", "is_published"]
 
 
-class QualificationReadSerializer(ReferentialSerializer):
-    class Meta:
-        model = Qualification
-        exclude = ["translations"]
-
-
-class QualificationWriteSerializer(QualificationReadSerializer):
-    pass
-
-
 class SecurityExceptionWriteSerializer(BaseModelSerializer):
     requirement_assessments = serializers.PrimaryKeyRelatedField(
         many=True, queryset=RequirementAssessment.objects.all(), required=False
@@ -1880,7 +1896,7 @@ class IncidentReadSerializer(IncidentWriteSerializer):
     threats = FieldsRelatedField(many=True)
     owners = FieldsRelatedField(many=True)
     assets = FieldsRelatedField(many=True)
-    qualifications = FieldsRelatedField(["name"], many=True)
+    qualifications = FieldsRelatedField(many=True)
     severity = serializers.CharField(source="get_severity_display", read_only=True)
     status = serializers.CharField(source="get_status_display", read_only=True)
     detection = serializers.CharField(source="get_detection_display", read_only=True)
@@ -2121,6 +2137,8 @@ class TerminologyReadSerializer(BaseModelSerializer):
 
 
 class TerminologyWriteSerializer(BaseModelSerializer):
+    builtin = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Terminology
-        exclude = ["folder", "is_published", "builtin"]
+        exclude = ["folder", "is_published"]
