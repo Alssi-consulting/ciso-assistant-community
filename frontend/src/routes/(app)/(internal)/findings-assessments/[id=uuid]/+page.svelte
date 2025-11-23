@@ -7,6 +7,15 @@
 	import HalfDonutChart from '$lib/components/Chart/HalfDonutChart.svelte';
 	import DonutChart from '$lib/components/Chart/DonutChart.svelte';
 	import { Popover } from '@skeletonlabs/skeleton-svelte';
+	import CreateModal from '$lib/components/Modals/CreateModal.svelte';
+	import {
+		getModalStore,
+		type ModalComponent,
+		type ModalSettings,
+		type ModalStore
+	} from '$lib/components/Modals/stores';
+	import ValidationFlowsSection from '$lib/components/ValidationFlows/ValidationFlowsSection.svelte';
+	import { invalidateAll } from '$app/navigation';
 
 	interface Props {
 		data: PageData;
@@ -15,6 +24,45 @@
 
 	let { data, form }: Props = $props();
 	let exportPopupOpen = $state(false);
+	let chartKey = $state(0);
+
+	const modalStore: ModalStore = getModalStore();
+	const findings_assessment = $derived(data.data);
+
+	function modalRequestValidation(): void {
+		const modalComponent: ModalComponent = {
+			ref: CreateModal,
+			props: {
+				form: data.validationFlowForm,
+				model: data.validationFlowModel,
+				debug: false,
+				invalidateAll: true,
+				formAction: '/validation-flows?/create',
+				onConfirm: async () => {
+					await invalidateAll();
+				}
+			}
+		};
+
+		const modal: ModalSettings = {
+			type: 'component',
+			component: modalComponent,
+			title: m.requestValidation()
+		};
+		modalStore.trigger(modal);
+	}
+
+	function resizeObserver(node: HTMLElement) {
+		const observer = new ResizeObserver(() => {
+			chartKey = chartKey + 1;
+		});
+		observer.observe(node);
+		return {
+			destroy() {
+				observer.disconnect();
+			}
+		};
+	}
 </script>
 
 {#if data.data?.is_locked}
@@ -68,6 +116,16 @@
 				class="btn preset-filled-primary-500 h-fit"
 				breadcrumbAction="push"><i class="fa-solid fa-heart-pulse mr-2"></i>{m.actionPlan()}</Anchor
 			>
+			{#if !findings_assessment?.is_locked && page.data?.featureflags?.validation_flows}
+				<button
+					class="btn text-gray-100 bg-linear-to-r from-orange-500 to-amber-500 h-fit"
+					onclick={() => modalRequestValidation()}
+					data-testid="request-validation-button"
+				>
+					<i class="fa-solid fa-check-circle mr-2"></i>
+					{m.requestValidation()}
+				</button>
+			{/if}
 		</div>
 	{/snippet}
 
@@ -93,25 +151,32 @@
 					</div>
 				</div>
 
-				<div class="card p-4 bg-gray-50 shadow-xs grow">
-					<div class="h-1/2">
-						<HalfDonutChart
-							name="current_h"
-							title={m.severity()}
-							classesContainer="flex-1 card p-4 bg-white"
-							values={data.findings_metrics.severity_chart_data}
-							colors={data.findings_metrics.severity_chart_data.map((object) => object.color)}
-						/>
-					</div>
-					<div class="h-1/2">
-						<DonutChart
-							classesContainer="flex-1 card p-4 bg-white"
-							name="f_treatment_progress"
-							title={m.progress()}
-							values={data.findings_metrics.status_chart_data.values}
-						/>
-					</div>
+				<div class="card p-2 bg-gray-50 shadow-xs flex-1 flex flex-row gap-2" use:resizeObserver>
+					{#key chartKey}
+						<div class="flex-1 min-h-0 min-w-0">
+							<HalfDonutChart
+								name="current_h"
+								title={m.severity()}
+								classesContainer="card p-2 bg-white h-full"
+								values={data.findings_metrics.severity_chart_data}
+								colors={data.findings_metrics.severity_chart_data.map((object) => object.color)}
+							/>
+						</div>
+						<div class="flex-1 min-h-0 min-w-0">
+							<DonutChart
+								classesContainer="card p-2 bg-white h-full"
+								name="f_treatment_progress"
+								title={m.progress()}
+								values={data.findings_metrics.status_chart_data.values}
+							/>
+						</div>
+					{/key}
 				</div>
+				{#if page.data?.featureflags?.validation_flows}
+					{#key findings_assessment.validation_flows}
+						<ValidationFlowsSection validationFlows={findings_assessment.validation_flows} />
+					{/key}
+				{/if}
 			</div>
 		{/key}
 	{/snippet}

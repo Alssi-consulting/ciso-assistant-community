@@ -4,9 +4,9 @@
 	import { setContext, onDestroy } from 'svelte';
 
 	import SuperForm from '$lib/components/Forms/Form.svelte';
-	import TextArea from '$lib/components/Forms/TextArea.svelte';
 	import TextField from '$lib/components/Forms/TextField.svelte';
 	import MarkdownField from '$lib/components/Forms/MarkdownField.svelte';
+	import LoadingSpinner from '../utils/LoadingSpinner.svelte';
 
 	import RiskAssessmentForm from './ModelForm/RiskAssessmentForm.svelte';
 	import PerimeterForm from './ModelForm/PerimeterForm.svelte';
@@ -15,6 +15,7 @@
 	import AppliedControlsPoliciesForm from './ModelForm/AppliedControlPolicyForm.svelte';
 	import VulnerabilitiesForm from './ModelForm/VulnerabilitiesForm.svelte';
 	import RiskAcceptancesForm from './ModelForm/RiskAcceptanceForm.svelte';
+	import ValidationFlowForm from './ModelForm/ValidationFlowForm.svelte';
 	import ReferenceControlsForm from './ModelForm/ReferenceControlForm.svelte';
 	import EvidencesForm from './ModelForm/EvidenceForm.svelte';
 	import ComplianceAssessmentsForm from './ModelForm/ComplianceAssessmentForm.svelte';
@@ -23,6 +24,7 @@
 	import EntitiesForm from './ModelForm/EntityForm.svelte';
 	import EntityAssessmentForm from './ModelForm/EntityAssessmentForm.svelte';
 	import SolutionsForm from './ModelForm/SolutionForm.svelte';
+	import ContractsForm from './ModelForm/ContractForm.svelte';
 	import RepresentativesForm from './ModelForm/RepresentativeForm.svelte';
 	import FrameworksForm from './ModelForm/FrameworkForm.svelte';
 	import UsersForm from './ModelForm/UserForm.svelte';
@@ -38,6 +40,7 @@
 	import DataContractorForm from './ModelForm/DataContractorForm.svelte';
 	import DataTransferForm from './ModelForm/DataTransferForm.svelte';
 	import RightRequestForm from './ModelForm/RightRequestForm.svelte';
+	import DataBreachForm from './ModelForm/DataBreachForm.svelte';
 	import EbiosRmForm from './ModelForm/EbiosRmForm.svelte';
 	import FearedEventForm from './ModelForm/FearedEventForm.svelte';
 	import RoToForm from './ModelForm/RoToForm.svelte';
@@ -65,12 +68,14 @@
 	import TerminologyForm from './ModelForm/TerminologyForm.svelte';
 	import RoleForm from './ModelForm/RoleForm.svelte';
 	import EvidenceRevisionForm from './ModelForm/EvidenceRevisionForm.svelte';
+	import GenericCollectionForm from './ModelForm/GenericCollectionForm.svelte';
+	import AccreditationForm from './ModelForm/AccreditationForm.svelte';
 
 	import AutocompleteSelect from './AutocompleteSelect.svelte';
 
 	import { modelSchema } from '$lib/utils/schemas';
 	import type { ModelInfo, urlModel, CacheLock } from '$lib/utils/types';
-	import { superForm, type SuperValidated } from 'sveltekit-superforms';
+	import { superForm, superValidate, type SuperValidated } from 'sveltekit-superforms';
 	import type { AnyZodObject } from 'zod';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
@@ -90,6 +95,7 @@
 		taintedMessage?: string | boolean;
 		model: ModelInfo;
 		context?: string;
+		origin?: string | null;
 		caching?: boolean;
 		closeModal?: boolean;
 		parent?: any;
@@ -110,6 +116,7 @@
 		taintedMessage = m.taintedFormMessage(),
 		model,
 		context = 'default',
+		origin = null,
 		caching = false,
 		closeModal = false,
 		parent = {},
@@ -221,6 +228,20 @@
 			}
 		}
 	});
+
+	let isLoading = $state(false);
+	let previousFormErrors = $derived('');
+	const { form: formData, errors } = _form;
+
+	errors.subscribe((newErrors) => {
+		const errorCount = Object.values(newErrors).reduce((acc, error) => (acc += error ? 1 : 0), 0);
+		const stringifiedErrors = JSON.stringify([Date.now(), newErrors]);
+
+		if (errorCount && stringifiedErrors !== previousFormErrors) {
+			isLoading = false;
+			previousFormErrors = stringifiedErrors;
+		}
+	});
 </script>
 
 {#if missingConstraints.length > 0}
@@ -245,6 +266,13 @@
 >
 	{#snippet children({ form, data, initialData })}
 		<input type="hidden" name="urlmodel" value={model.urlModel} />
+		{#if additionalInitialData?.genericcollection}
+			<input
+				type="hidden"
+				name="genericcollection"
+				value={additionalInitialData.genericcollection}
+			/>
+		{/if}
 		<!--NOTE: Not the cleanest pattern, will refactor-->
 		<!--TODO: Refactor-->
 		{#if shape.reference_control && !duplicate}
@@ -274,7 +302,15 @@
 										return currentData; // Keep the current values in the edit form.
 									}
 									updated_fields.add('reference_control');
-									return { ...currentData, category: r.category, csf_function: r.csf_function };
+									// Only auto-fill name if it's empty OR user hasn't manually edited it
+									const shouldUpdateName = !currentData.name || !updated_fields.has('name');
+									return {
+										...currentData,
+										name: shouldUpdateName ? r.name : currentData.name,
+										category: r.category,
+										csf_function: r.csf_function,
+										ref_id: r.ref_id
+									};
 								});
 							});
 					}
@@ -289,6 +325,9 @@
 				cacheLock={cacheLocks['name']}
 				bind:cachedValue={formDataCache['name']}
 				data-focusindex="0"
+				oninput={() => {
+					updated_fields.add('name');
+				}}
 			/>
 		{/if}
 		{#if shape.description && !customNameDescription}
@@ -339,7 +378,9 @@
 				{cacheLocks}
 				{formDataCache}
 				{schema}
+				{origin}
 				{initialData}
+				{context}
 				{...rest}
 			/>
 		{:else if URLModel === 'vulnerabilities'}
@@ -353,6 +394,16 @@
 				{object}
 				{initialData}
 				{$page}
+				{...rest}
+			/>
+		{:else if URLModel === 'validation-flows'}
+			<ValidationFlowForm
+				{form}
+				{model}
+				{cacheLocks}
+				{formDataCache}
+				{object}
+				{initialData}
 				{...rest}
 			/>
 		{:else if URLModel === 'reference-controls'}
@@ -404,7 +455,7 @@
 		{:else if URLModel === 'requirement-assessments'}
 			<RequirementAssessmentsForm {form} {model} {cacheLocks} {formDataCache} {context} {...rest} />
 		{:else if URLModel === 'entities'}
-			<EntitiesForm {form} {model} {cacheLocks} {formDataCache} {initialData} {...rest} />
+			<EntitiesForm {form} {model} {cacheLocks} {formDataCache} {initialData} {object} {...rest} />
 		{:else if URLModel === 'entity-assessments'}
 			<EntityAssessmentForm
 				{form}
@@ -417,6 +468,8 @@
 			/>
 		{:else if URLModel === 'solutions'}
 			<SolutionsForm {form} {model} {cacheLocks} {formDataCache} {initialData} {...rest} />
+		{:else if URLModel === 'contracts'}
+			<ContractsForm {form} {model} {cacheLocks} {formDataCache} {initialData} {...rest} />
 		{:else if URLModel === 'representatives'}
 			<RepresentativesForm {form} {model} {cacheLocks} {formDataCache} {data} {...rest} />
 		{:else if URLModel === 'frameworks'}
@@ -520,6 +573,16 @@
 			/>
 		{:else if URLModel === 'right-requests'}
 			<RightRequestForm
+				{form}
+				{model}
+				{cacheLocks}
+				{formDataCache}
+				{context}
+				{initialData}
+				{...rest}
+			/>
+		{:else if URLModel === 'data-breaches'}
+			<DataBreachForm
 				{form}
 				{model}
 				{cacheLocks}
@@ -694,6 +757,18 @@
 				{object}
 				{context}
 			/>
+		{:else if URLModel === 'generic-collections'}
+			<GenericCollectionForm
+				{form}
+				{model}
+				{cacheLocks}
+				{formDataCache}
+				{initialData}
+				{object}
+				{context}
+			/>
+		{:else if URLModel === 'accreditations'}
+			<AccreditationForm {form} {model} {cacheLocks} {formDataCache} {initialData} {object} />
 		{/if}
 		<div class="flex flex-row justify-between space-x-4">
 			{#if closeModal}
@@ -707,9 +782,26 @@
 					}}>{m.cancel()}</button
 				>
 				<button
-					class="btn preset-filled-primary-500 font-semibold w-full"
+					class="btn preset-filled-primary-500 font-semibold w-full {isLoading
+						? 'cursor-wait'
+						: ''}"
 					data-testid="save-button"
-					type="submit">{m.save()}</button
+					type="submit"
+					onclick={(e) => {
+						if (URLModel !== 'folders-import') return;
+						if (isLoading) {
+							e.preventDefault();
+							e.stopPropagation();
+							return;
+						}
+
+						const schema = modelSchema(URLModel);
+						const result = schema.safeParse($formData);
+						if (!result.success) return;
+
+						isLoading = true;
+					}}
+					>{#if isLoading}{m.loading()} <LoadingSpinner />{:else}{m.save()}{/if}</button
 				>
 			{:else}
 				{#if cancelButton}

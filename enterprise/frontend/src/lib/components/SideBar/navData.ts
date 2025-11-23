@@ -16,6 +16,17 @@ export const navData = {
 					]
 				},
 				{
+					name: 'reports',
+					fa_icon: 'fas fa-file-invoice',
+					href: '/reports',
+					permissions: [
+						'view_perimeter',
+						'view_riskscenario',
+						'view_referencecontrol',
+						'view_riskassessment'
+					]
+				},
+				{
 					name: 'domainAnalytics',
 					fa_icon: 'fa-solid fa-folder-tree',
 					href: '/domain-analytics',
@@ -207,7 +218,7 @@ export const navData = {
 				},
 				{
 					name: 'policies',
-					fa_icon: 'fa-solid fa-book',
+					fa_icon: 'fa-solid fa-file-alt',
 					href: '/policies',
 					permissions: ['view_appliedcontrol']
 				},
@@ -227,6 +238,12 @@ export const navData = {
 					name: 'riskAcceptances',
 					fa_icon: 'fa-solid fa-signature',
 					href: '/risk-acceptances'
+				},
+				{
+					name: 'validationFlows',
+					fa_icon: 'fa-solid fa-clipboard-check',
+					href: '/validation-flows',
+					permissions: ['view_validationflow']
 				},
 				{
 					name: 'securityExceptions',
@@ -317,6 +334,7 @@ export const navData = {
 						'view_appliedcontrol',
 						'view_entity',
 						'view_solution',
+						'view_contract',
 						'view_entityassessment'
 					]
 				},
@@ -324,11 +342,6 @@ export const navData = {
 					name: 'entities',
 					fa_icon: 'fa-solid fa-building',
 					href: '/entities'
-				},
-				{
-					name: 'entityAssessments',
-					fa_icon: 'fa-solid fa-clipboard-list',
-					href: '/entity-assessments'
 				},
 				{
 					name: 'representatives',
@@ -339,6 +352,16 @@ export const navData = {
 					name: 'solutions',
 					fa_icon: 'fa-solid fa-box',
 					href: '/solutions'
+				},
+				{
+					name: 'contracts',
+					fa_icon: 'fa-solid fa-file-contract',
+					href: '/contracts'
+				},
+				{
+					name: 'entityAssessments',
+					fa_icon: 'fa-solid fa-clipboard-list',
+					href: '/entity-assessments'
 				}
 			]
 		},
@@ -374,6 +397,29 @@ export const navData = {
 					fa_icon: 'fa-solid fa-user-shield',
 					href: '/right-requests',
 					permissions: ['view_rightrequest']
+				},
+				{
+					name: 'dataBreaches',
+					fa_icon: 'fa-solid fa-triangle-exclamation',
+					href: '/data-breaches',
+					permissions: ['view_databreach']
+				}
+			]
+		},
+		{
+			name: 'projectManagement',
+			items: [
+				{
+					name: 'genericCollections',
+					fa_icon: 'fa-solid fa-box-archive',
+					href: '/generic-collections',
+					permissions: ['view_genericcollection']
+				},
+				{
+					name: 'accreditations',
+					fa_icon: 'fa-solid fa-award',
+					href: '/accreditations',
+					permissions: ['view_accreditation']
 				}
 			]
 		},
