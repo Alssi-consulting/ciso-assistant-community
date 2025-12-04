@@ -3388,6 +3388,14 @@ class EvidenceRevision(AbstractBaseModel, FolderMixin):
     evidence = models.ForeignKey(
         Evidence, on_delete=models.CASCADE, related_name="revisions"
     )
+    task_node = models.ForeignKey(
+        "TaskNode",
+        on_delete=models.SET_NULL,
+        related_name="evidence_revisions",
+        blank=True,
+        null=True,
+        verbose_name=_("Task Node"),
+    )
     version = models.IntegerField(
         default=1,
         verbose_name=_("version number"),
@@ -4748,7 +4756,7 @@ def risk_scoring(probability, impact, risk_matrix: RiskMatrix) -> int:
     return risk_index
 
 
-class RiskScenario(NameDescriptionMixin):
+class RiskScenario(NameDescriptionMixin, FilteringLabelMixin):
     TREATMENT_OPTIONS = [
         ("open", _("Open")),
         ("mitigate", _("Mitigate")),
@@ -4828,13 +4836,34 @@ class RiskScenario(NameDescriptionMixin):
         blank=True,
         related_name="risk_scenarios",
     )
+    # DEPRECATED field existing_controls - remove when dummy data are cleaned up and we're resilient to dropping the field on all import capabilities
     existing_controls = models.TextField(
         max_length=2000,
         help_text=_(
             "The existing controls to manage this risk. Edit the risk scenario to add extra applied controls."
         ),
-        verbose_name=_("Existing controls"),
         blank=True,
+        verbose_name=_("Existing controls"),
+    )
+    risk_origin = models.ForeignKey(
+        Terminology,
+        on_delete=models.PROTECT,
+        verbose_name=_("Risk origin"),
+        related_name="risk_scenario_risk_origins",
+        limit_choices_to={
+            "field_path": Terminology.FieldPath.ROTO_RISK_ORIGIN,
+            "is_visible": True,
+        },
+        null=True,
+        blank=True,
+    )
+    antecedent_scenarios = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        verbose_name=_("Antecedent scenarios"),
+        blank=True,
+        help_text=_("Risk scenarios that precede this scenario"),
+        related_name="consequent_scenarios",
     )
     existing_applied_controls = models.ManyToManyField(
         AppliedControl,
@@ -5042,6 +5071,33 @@ class RiskScenario(NameDescriptionMixin):
         if self.strength_of_knowledge < 0:
             return self.DEFAULT_SOK_OPTIONS[-1]
         return self.DEFAULT_SOK_OPTIONS[self.strength_of_knowledge]
+
+    def ancestors_plus_self(self):
+        """
+        Returns a set containing the scenario itself and all its ancestors (antecedents, transitively).
+        """
+        from collections import deque
+
+        all_links = self.__class__.antecedent_scenarios.through.objects.values_list(
+            "from_riskscenario_id", "to_riskscenario_id"
+        )
+        child_to_parents_map = {}
+        for child_id, parent_id in all_links:
+            if child_id not in child_to_parents_map:
+                child_to_parents_map[child_id] = set()
+            child_to_parents_map[child_id].add(parent_id)
+
+        ancestor_ids = {self.pk}
+        queue = deque([self.pk])
+        while queue:
+            current_id = queue.popleft()
+            parent_ids = child_to_parents_map.get(current_id, set())
+            for parent_id in parent_ids:
+                if parent_id not in ancestor_ids:
+                    ancestor_ids.add(parent_id)
+                    queue.append(parent_id)
+
+        return self.__class__.objects.filter(id__in=ancestor_ids)
 
     def sync_to_applied_controls(self, reset_residual=False, dry_run=True):
         """
@@ -6637,6 +6693,12 @@ class TaskTemplate(NameDescriptionMixin, FolderMixin):
     assigned_to = models.ManyToManyField(
         User, verbose_name="Assigned to", blank=True, related_name="task_templates"
     )
+    evidences = models.ManyToManyField(
+        Evidence,
+        blank=True,
+        help_text="Evidences related to the task",
+        related_name="task_templates",
+    )
     assets = models.ManyToManyField(
         Asset,
         verbose_name="Related assets",
@@ -6774,9 +6836,16 @@ class TaskNode(AbstractBaseModel, FolderMixin):
 
     to_delete = models.BooleanField(default=False)
 
+    def __str__(self):
+        return f"{self.task_template.name} ({self.due_date})"
+
     @property
     def assigned_to(self):
         return self.task_template.assigned_to
+
+    @property
+    def expected_evidence(self):
+        return self.task_template.evidences.all()
 
     @property
     def assets(self):
